@@ -76,9 +76,18 @@ def home():
 @token_required
 def get_users():
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM user")
+    
+    # Check if the URL has a search term (e.g., ?q=ali)
+    search_query = request.args.get('q')
+    
+    if search_query:
+        cur.execute("SELECT * FROM user WHERE username LIKE %s", ("%" + search_query + "%",))  # ex. http://127.0.0.1:5000/users?q=law
+    else:                                                                                      # 
+        cur.execute("SELECT * FROM user")
+        
     users = cur.fetchall()
     cur.close()
+
     return format_response(users)
 
 @app.route('/comments', methods=['GET'])
