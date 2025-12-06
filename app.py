@@ -67,7 +67,46 @@ def create_user():
 
     return jsonify({'id': new_id, 'username': name, 'email': email}), 201
 
+@app.route('/users/<int:id>', methods=['PUT'])
+def update_user(id):
+    data = request.get_json()
+    name = data.get('username')
+    email = data.get('email')
 
+    # Basic validation
+    if not name or not email:
+        abort(400) 
+
+    cur = mysql.connection.cursor()
+    
+    cur.execute("UPDATE user SET username = %s, email = %s WHERE idUser = %s", (name, email, id))
+    mysql.connection.commit()
+
+    # Check if a row was modified
+    rows_affected = cur.rowcount
+    cur.close()
+
+    if rows_affected == 0:
+        abort(404) # User not found
+
+    return jsonify({'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'})
+
+@app.route('/users/<int:id>', methods=['DELETE'])
+def delete_user(id):
+    cur = mysql.connection.cursor()
+    
+    # Delete logic
+    cur.execute("DELETE FROM user WHERE idUser = %s", (id,))
+    mysql.connection.commit()
+    
+    
+    rows_affected = cur.rowcount
+    cur.close()
+
+    if rows_affected == 0:
+        abort(404)
+
+    return jsonify({'message': 'User deleted successfully', 'id': id}), 200
 
 
 if __name__ == '__main__':
