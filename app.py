@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, request, abort, make_response, render_template, session, flash
+from flask import Flask, jsonify, request, abort, make_response, render_template, session, flash, Response
 import jwt
+import dicttoxml
 from flask_mysqldb import MySQL
 from datetime import datetime, timedelta
 from functools import wraps
@@ -26,6 +27,15 @@ def token_required(func):
             return jsonify({'Message': 'Invalid token'}), 403
         return func(*args, **kwargs)
     return decorated
+
+def format_response(data, status_code=200):
+    if request.args.get('format') == 'xml':
+        xml = dicttoxml.dicttoxml(data, custom_root='response', attr_type=False)
+        return Response(xml, status=status_code, mimetype='application/xml')
+    else:
+        response = jsonify(data)
+        response.status_code = status_code
+        return response
 
 #Routes
 @app.route('/public')
@@ -56,19 +66,20 @@ def login():
 
 @app.route('/')
 def home():
-    if not session.get('loged_in'):
+    if not session.get('logged_in'):
         return render_template('login.html')
     else:
         return 'You are logged in!'
 
 
 @app.route('/users', methods=['GET'])
+@token_required
 def get_users():
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM user")
     users = cur.fetchall()
     cur.close()
-    return jsonify(users)
+    return format_response(users)
 
 @app.route('/comments', methods=['GET'])
 def get_comments():
@@ -91,11 +102,12 @@ def get_user(id):
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM user WHERE idUser = %s", (id,))
     user = cur.fetchone()
-    if user is None:
-        abort(404) # Not found page
     cur.close()
 
-    return jsonify(user)
+    if user is None:
+        return format_response({'error': 'User not found'}, 404)
+
+    return format_response(user)
 
 @app.route('/users', methods=['POST'])
 def create_user():
@@ -104,7 +116,7 @@ def create_user():
     email = data.get('email')
 
     if not name or not email:
-        abort(400) # Bad request
+        return format_response({'error': 'Missing username or email'}, 400)
 
     cur = mysql.connection.cursor()
     cur.execute("INSERT INTO user (username, email) VALUES (%s, %s)", (name, email))
@@ -112,7 +124,7 @@ def create_user():
     new_id = cur.lastrowid
     cur.close()
 
-    return jsonify({'id': new_id, 'username': name, 'email': email}), 201
+    return format_response({'id': new_id, 'username': name, 'email': email}), 201
 
 @app.route('/users/<int:id>', methods=['PUT'])
 def update_user(id):
@@ -122,7 +134,7 @@ def update_user(id):
 
     # Basic validation
     if not name or not email:
-        abort(400) 
+        return format_response({'error': 'Missing username or email'}, 400)
 
     cur = mysql.connection.cursor()
     
@@ -134,9 +146,9 @@ def update_user(id):
     cur.close()
 
     if rows_affected == 0:
-        abort(404) # User not found
+        return format_response({'error': 'User not found'}, 404)
 
-    return jsonify({'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'})
+    return format_response({'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'})
 
 @app.route('/users/<int:id>', methods=['DELETE'])
 def delete_user(id):
@@ -151,9 +163,9 @@ def delete_user(id):
     cur.close()
 
     if rows_affected == 0:
-        abort(404)
+        return format_response({'error': 'User not found'}, 404)
 
-    return jsonify({'message': 'User deleted successfully', 'id': id}), 200
+    return format_response({'message': 'User deleted successfully', 'id': id}, 200)
 
 
 if __name__ == '__main__':
