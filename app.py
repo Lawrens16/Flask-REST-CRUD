@@ -23,6 +23,22 @@ def get_users():
     cur.close()
     return jsonify(users)
 
+@app.route('/comments', methods=['GET'])
+def get_comments():
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM comments")
+    comments = cur.fetchall()
+    cur.close()
+    return jsonify(comments)
+
+@app.route('/posts', methods=['GET'])
+def get_posts():
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM posts")
+    posts = cur.fetchall()
+    cur.close()
+    return jsonify(posts)
+
 @app.route('/users/<int:id>', methods=['GET'])
 def get_user(id):
     cur = mysql.connection.cursor()
@@ -33,6 +49,23 @@ def get_user(id):
     cur.close()
 
     return jsonify(user)
+
+@app.route('/users', methods=['POST'])
+def create_user():
+    data = request.get_json()
+    name = data.get('username')
+    email = data.get('email')
+
+    if not name or not email:
+        abort(400) # Bad request
+
+    cur = mysql.connection.cursor()
+    cur.execute("INSERT INTO user (username, email) VALUES (%s, %s)", (name, email))
+    mysql.connection.commit()
+    new_id = cur.lastrowid
+    cur.close()
+
+    return jsonify({'id': new_id, 'username': name, 'email': email}), 201
 
 
 
