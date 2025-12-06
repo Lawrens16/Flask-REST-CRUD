@@ -1,5 +1,8 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, make_response, render_template, session, flash
+import jwt
 from flask_mysqldb import MySQL
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__) # create the Flask app instance
 
@@ -7,14 +10,58 @@ app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'lawrence'
 app.config['MYSQL_DB'] = 'cs_elec'
+app.config['SECRET_KEY'] = 'b786a8c232db4e56b306feb599cf8a00'
 mysql = MySQL(app)
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
+def token_required(func):
+    @wraps(func)
+    def decorated(*args, **kwargs):
+        token = request.args.get('token')
+        if not token:
+            return jsonify({'Alert!': 'Token is missing!'}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        except:
+            return jsonify({'Message': 'Invalid token'}), 403
+        return func(*args, **kwargs)
+    return decorated
+
+#Routes
+@app.route('/public')
+def public():
+    return 'For public, anyone can view'
+
+@app.route('/auth')
+@token_required
+def auth():
+    return 'JWT is verified, you can view this'
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    if username and password == 'password123':
+        session['logged_in'] = True
+
+        token = jwt.encode({
+            'user' : username,
+            'expiration': datetime.utcnow() + timedelta(minutes=5)
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+
+        return jsonify({'token': token})
+    else:
+        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
 @app.route('/')
 def home():
-    return "Hello, Flask!"
+    if not session.get('loged_in'):
+        return render_template('login.html')
+    else:
+        return 'You are logged in!'
 
-#Routes 
+
 @app.route('/users', methods=['GET'])
 def get_users():
     cur = mysql.connection.cursor()
