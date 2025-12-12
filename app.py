@@ -119,6 +119,7 @@ def get_user(id):
     return format_response(user)
 
 @app.route('/users', methods=['POST'])
+@token_required
 def create_user():
     data = request.get_json()
     name = data.get('username')
@@ -136,6 +137,7 @@ def create_user():
     return format_response({'id': new_id, 'username': name, 'email': email}), 201
 
 @app.route('/users/<int:id>', methods=['PUT'])
+@token_required
 def update_user(id):
     data = request.get_json()
     name = data.get('username')
@@ -160,6 +162,7 @@ def update_user(id):
     return format_response({'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'})
 
 @app.route('/users/<int:id>', methods=['DELETE'])
+@token_required
 def delete_user(id):
     cur = mysql.connection.cursor()
     
