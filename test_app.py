@@ -10,6 +10,12 @@ class TestFlaskAPI(unittest.TestCase):
         app.config['SECRET_KEY'] = 'test_secret_key'
         self.app = app.test_client()
 
+    def get_auth_token(self):
+        response = self.app.post('/login', data={'username': 'testuser', 'password': 'password123'})
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        return data['token']
+
     # --- Authentication Tests ---
 
     def test_login_success(self):
@@ -47,7 +53,7 @@ class TestFlaskAPI(unittest.TestCase):
         mock_mysql.connection.cursor.return_value = mock_cursor
 
         # Get valid token
-        token = self.test_login_success()
+        token = self.get_auth_token()
 
         # Test GET /users
         response = self.app.get(f'/users?token={token}')
@@ -59,9 +65,10 @@ class TestFlaskAPI(unittest.TestCase):
     @patch('app.mysql')
     def test_get_users_search(self, mock_mysql):
         mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [] # Mock empty result for search
         mock_mysql.connection.cursor.return_value = mock_cursor
 
-        token = self.test_login_success()
+        token = self.get_auth_token()
 
         # Test GET /users?q=search_term
         self.app.get(f'/users?token={token}&q=search_term')
@@ -95,8 +102,9 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.lastrowid = 1
         mock_mysql.connection.cursor.return_value = mock_cursor
 
+        token = self.get_auth_token()
         payload = {'username': 'newuser', 'email': 'new@test.com'}
-        response = self.app.post('/users', json=payload)
+        response = self.app.post(f'/users?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 201)
         mock_cursor.execute.assert_called()
@@ -105,8 +113,9 @@ class TestFlaskAPI(unittest.TestCase):
 
     @patch('app.mysql')
     def test_create_user_missing_fields(self, mock_mysql):
+        token = self.get_auth_token()
         payload = {'username': 'newuser'} # Missing email
-        response = self.app.post('/users', json=payload)
+        response = self.app.post(f'/users?token={token}', json=payload)
         self.assertEqual(response.status_code, 400)
 
     @patch('app.mysql')
@@ -115,8 +124,9 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.rowcount = 1
         mock_mysql.connection.cursor.return_value = mock_cursor
 
+        token = self.get_auth_token()
         payload = {'username': 'updated', 'email': 'updated@test.com'}
-        response = self.app.put('/users/1', json=payload)
+        response = self.app.put(f'/users/1?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 200)
         mock_mysql.connection.commit.assert_called()
@@ -127,8 +137,9 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.rowcount = 0 # Simulate no rows affected
         mock_mysql.connection.cursor.return_value = mock_cursor
 
+        token = self.get_auth_token()
         payload = {'username': 'updated', 'email': 'updated@test.com'}
-        response = self.app.put('/users/999', json=payload)
+        response = self.app.put(f'/users/999?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 404)
 
@@ -138,7 +149,8 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.rowcount = 1
         mock_mysql.connection.cursor.return_value = mock_cursor
 
-        response = self.app.delete('/users/1')
+        token = self.get_auth_token()
+        response = self.app.delete(f'/users/1?token={token}')
         self.assertEqual(response.status_code, 200)
         mock_mysql.connection.commit.assert_called()
 
@@ -148,7 +160,8 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.rowcount = 0
         mock_mysql.connection.cursor.return_value = mock_cursor
 
-        response = self.app.delete('/users/999')
+        token = self.get_auth_token()
+        response = self.app.delete(f'/users/999?token={token}')
         self.assertEqual(response.status_code, 404)
 
     # --- Formatting Tests ---
@@ -159,7 +172,7 @@ class TestFlaskAPI(unittest.TestCase):
         mock_cursor.fetchall.return_value = [{'idUser': 1, 'username': 'test'}]
         mock_mysql.connection.cursor.return_value = mock_cursor
 
-        token = self.test_login_success()
+        token = self.get_auth_token()
         
         # Request XML format
         response = self.app.get(f'/users?token={token}&format=xml')
@@ -169,3 +182,5 @@ class TestFlaskAPI(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+

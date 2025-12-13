@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, abort, make_response, render_template
 import jwt
 import dicttoxml
 from flask_mysqldb import MySQL
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from functools import wraps
 
 app = Flask(__name__) # create the Flask app instance
@@ -57,7 +57,7 @@ def login():
 
         token = jwt.encode({
             'user' : username,
-            'expiration': datetime.utcnow() + timedelta(minutes=5)
+            'exp': datetime.now(UTC) + timedelta(minutes=5)
         }, app.config['SECRET_KEY'], algorithm="HS256")
 
         return jsonify({'token': token})
