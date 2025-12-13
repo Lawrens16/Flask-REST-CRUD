@@ -57,7 +57,7 @@ def login():
 
         token = jwt.encode({
             'user' : username,
-            'exp': datetime.now(UTC) + timedelta(minutes=5)
+            'exp': datetime.now(UTC) + timedelta(minutes=20)
         }, app.config['SECRET_KEY'], algorithm="HS256")
 
         return jsonify({'token': token})
@@ -91,6 +91,7 @@ def get_users():
     return format_response(users)
 
 @app.route('/comments', methods=['GET'])
+@token_required
 def get_comments():
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM comments")
@@ -99,6 +100,7 @@ def get_comments():
     return jsonify(comments)
 
 @app.route('/posts', methods=['GET'])
+@token_required
 def get_posts():
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM posts")
@@ -107,6 +109,7 @@ def get_posts():
     return jsonify(posts)
 
 @app.route('/users/<int:id>', methods=['GET'])
+@token_required
 def get_user(id):
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM user WHERE idUser = %s", (id,))
@@ -124,12 +127,13 @@ def create_user():
     data = request.get_json()
     name = data.get('username')
     email = data.get('email')
+    password = data.get('password')
 
-    if not name or not email:
-        return format_response({'error': 'Missing username or email'}, 400)
+    if not name or not email or not password:
+        return format_response({'error': 'Missing username, email, or password'}, 400)
 
     cur = mysql.connection.cursor()
-    cur.execute("INSERT INTO user (username, email) VALUES (%s, %s)", (name, email))
+    cur.execute("INSERT INTO user (username, email, password) VALUES (%s, %s, %s)", (name, email, password))
     mysql.connection.commit()
     new_id = cur.lastrowid
     cur.close()
@@ -142,14 +146,15 @@ def update_user(id):
     data = request.get_json()
     name = data.get('username')
     email = data.get('email')
+    password = data.get('password')
 
     # Basic validation
-    if not name or not email:
-        return format_response({'error': 'Missing username or email'}, 400)
+    if not name or not email or not password:
+        return format_response({'error': 'Missing username, email, or password'}, 400)
 
     cur = mysql.connection.cursor()
     
-    cur.execute("UPDATE user SET username = %s, email = %s WHERE idUser = %s", (name, email, id))
+    cur.execute("""UPDATE user SET username = %s, email = %s, password = %s WHERE idUser = %s""", (name, email, password, id))
     mysql.connection.commit()
 
     # Check if a row was modified
@@ -159,7 +164,9 @@ def update_user(id):
     if rows_affected == 0:
         return format_response({'error': 'User not found'}, 404)
 
-    return format_response({'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'})
+    return format_response({
+        'id': id, 'username': name, 'email': email, 'message': 'User updated successfully'
+    })
 
 @app.route('/users/<int:id>', methods=['DELETE'])
 @token_required
