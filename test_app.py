@@ -24,7 +24,6 @@ class TestFlaskAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertIn('token', data)
-        return data['token']
 
     def test_login_failure(self):
         # Test login with incorrect credentials
@@ -103,7 +102,7 @@ class TestFlaskAPI(unittest.TestCase):
         mock_mysql.connection.cursor.return_value = mock_cursor
 
         token = self.get_auth_token()
-        payload = {'username': 'newuser', 'email': 'new@test.com'}
+        payload = {'username': 'newuser', 'email': 'new@test.com', 'password': 'newpassword'}
         response = self.app.post(f'/users?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 201)
@@ -125,7 +124,7 @@ class TestFlaskAPI(unittest.TestCase):
         mock_mysql.connection.cursor.return_value = mock_cursor
 
         token = self.get_auth_token()
-        payload = {'username': 'updated', 'email': 'updated@test.com'}
+        payload = {'username': 'updated', 'email': 'updated@test.com', 'password': 'updatedpass'}
         response = self.app.put(f'/users/1?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 200)
@@ -138,7 +137,7 @@ class TestFlaskAPI(unittest.TestCase):
         mock_mysql.connection.cursor.return_value = mock_cursor
 
         token = self.get_auth_token()
-        payload = {'username': 'updated', 'email': 'updated@test.com'}
+        payload = {'username': 'updated', 'email': 'updated@test.com', 'password': 'updatedpass'}
         response = self.app.put(f'/users/999?token={token}', json=payload)
         
         self.assertEqual(response.status_code, 404)
